@@ -10,6 +10,7 @@
 #include "EX25_SCANNER.h"
 
 #define def_TIMER1		0x3D90 //50ms
+#define def_TIMER3		0x3D90 //50ms
 
 static int1 si1_232_1_ok = FALSE;
 static int8 si8_rx1_cnt = 0;
@@ -26,6 +27,11 @@ int8 ai8_ts02_id[4];
 int8 i8_ts02_id = 0;
 
 static int8 sai8_buffer_rx2[def_BUF_MAX+1];
+
+short i1_sleep_mode = FALSE;
+short i1_sleep_sts = FALSE;
+
+int8 i8_tmr1_cnt;
 
 #include "EX25_SCANNER_FNC.c"
 ///////////////////////////////////////////////////////////////////////////////
@@ -112,14 +118,33 @@ void RDA2_isr(void){
 			}
 		}
 	}
-	si1_232_2_ok = TRUE;	
+	si1_232_2_ok = TRUE;
+	i1_sleep_mode=FALSE;  	
 	clear_232_2();
 }
+///////////////////////////////////////////////////////////////////////////////
+#INT_EXT2
+void EXT2_isr(){
+	static int1 i1_bt = FALSE;
+	i1_bt = LATB.RB.BUTTON;
+	delay_ms(30);
+	i1_bt &= LATB.RB.BUTTON;
+	if(!i1_bt){
+		i1_sleep_mode=FALSE;  	
+		i8_tmr1_cnt = 0;
+	}	
+}	
 ///////////////////////////////////////////////////////////////////////////////
 #INT_TIMER1
 void TIMER1_isr(){
 	set_timer1(def_TIMER1);	//50ms
 	LATA.RA.RA6 ^= 1;
+	if(i8_tmr1_cnt < 100) i8_tmr1_cnt++;
+	else{
+		i8_tmr1_cnt = 0;
+		i1_sleep_mode = TRUE;
+	}	
+	
 }	
 ///////////////////////////////////////////////////////////////////////////////
 void main()
@@ -155,7 +180,7 @@ void main()
 	BRGH2 = 1;
 	BRG16_2 = 1;
 	SPBRGH2 = 0;
-	SPBRG2 = 16;
+	SPBRG2 = 16; //57600bps
 	
 	BRGH = 1;
 	BRG16 = 1;
@@ -176,15 +201,25 @@ void main()
 	clear_interrupt(INT_RDA2);
 	enable_interrupts(INT_RDA2);
 	
+	if(input(LATB.RB.BUTTON) == 1)   // If switch is high 
+		ext_int_edge(H_TO_L); // Then expect a falling edge next 
+	else                     // If switch is low 
+		ext_int_edge(L_TO_H); 
+	clear_interrupt(INT_EXT2);
+	enable_interrupts(INT_EXT2);
+	delay_ms(10);
+	
 	enable_interrupts(GLOBAL);
-	delay_ms(2000);
-
+	delay_ms(1000);
+	
+	i1_sleep_mode = FALSE;
 
 	//sound(1, E6);
 	//sound(1, D6);
 	//sound(1, C6);
 	
 	Command_Q_I();
+
 	
 	while(!si1_TS02E_exist){
 		if(si1_232_1_ok){
@@ -205,6 +240,8 @@ void main()
 	
 	while(TRUE){
 		if(si1_232_2_ok){
+			i8_tmr1_cnt = 0;
+			clear_232_2();
 			si1_232_2_ok = FALSE;
 			check_ts02_rdy();
 			Command_TX();
@@ -212,6 +249,23 @@ void main()
 			wait_ts02_complete();
 			si8_rx2_cnt = 0;
 			memset(sai8_buffer_rx2, 0, 255);
+		}	
+		if(i1_sleep_mode){
+			clear_232_1();
+			check_ts02_rdy();
+			Command_TX();
+			fprintf(TS02, "\nSLEEP!");
+			wait_ts02_complete();
+			LATA.RA.RA6 = 0;
+			i1_sleep_sts = TRUE;
+			sleep();     
+		}
+		else if(i1_sleep_sts == TRUE){
+			i1_sleep_sts = FALSE;
+			check_ts02_rdy();
+			Command_TX();
+			fprintf(TS02, "\nAWAKE!");
+			wait_ts02_complete();
 		}	
 	}	
 }	

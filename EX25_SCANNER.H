@@ -53,7 +53,7 @@ union rb_pin_union{
 	struct rb_pin_map{
 		boolean SS2				:1;		//RB0	1
 		boolean	SCK2			:1;		//RB1	1
-		boolean SDI2			:1;		//RB2	1
+		boolean BUTTON			:1;		//RB2	1
 		boolean SDO2			:1;		//RB3	1
 		boolean RB4				:1;		//RB4	1
 		boolean RB5				:1;		//RB5	1

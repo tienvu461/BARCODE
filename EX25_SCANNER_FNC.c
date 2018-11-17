@@ -112,6 +112,16 @@ void Command_TX(){
 
 	wait_ts02_complete();
 }
+void Command_SB(){
+	check_ts02_rdy();
+	
+	tx_232('#');
+	tx_232('S');
+	tx_232('B');
+	tx_232(0x0D);
+
+	wait_ts02_complete();
+}
 void Command_CH(int8 i8_no){
 	check_ts02_rdy();
 	

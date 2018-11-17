@@ -130,9 +130,16 @@ void EXT2_isr(){
 	delay_ms(30);
 	i1_bt &= LATB.RB.BUTTON;
 	if(!i1_bt){
+		i1_bt = FALSE;
 		i1_sleep_mode=FALSE;  	
 		i8_tmr1_cnt = 0;
+		ext_int_edge(L_TO_H);
 	}	
+	else                       
+	{        
+		i1_bt = TRUE;
+		ext_int_edge(H_TO_L);   
+	}
 }	
 ///////////////////////////////////////////////////////////////////////////////
 #INT_TIMER1
